@@ -111,12 +111,9 @@ namespace ExelWorker.ExelWorker
             var prop = obj.GetType().GetProperty(property, BindingFlags.Public | BindingFlags.Instance);
             if (prop != null && prop.CanWrite)
             {
-                try
+                if (value.GetType() == prop.PropertyType)
                 {
                     prop.SetValue(obj, Convert.ChangeType(value, prop.PropertyType, null));
-                }
-                catch (Exception e) 
-                {
                 }
             }
         }
