@@ -23,6 +23,11 @@ namespace ExelWorker.ExelWorker
         public List<TModel> GetModelFromExel<TModel>(FileStream fileStream)
             where TModel : class
         {
+            if (Path.GetExtension(fileStream.Name) != ".xlsx")
+            {
+                throw new FileFormatException("Incorrect file format, work is possible only with .xlsx");
+            }
+
             ExelModelService exelModelService = new ExelModelService();
 
             var model = Activator.CreateInstance(typeof(TModel));
