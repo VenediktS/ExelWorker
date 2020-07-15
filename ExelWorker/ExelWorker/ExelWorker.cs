@@ -1,20 +1,16 @@
 ﻿using System;
 using System.Collections.Generic;
-using DocumentFormat.OpenXml;
-using DocumentFormat.OpenXml.Packaging;
-using DocumentFormat.OpenXml.Spreadsheet;
 using System.IO;
 using System.Linq;
 using System.Reflection;
-using System.Text.RegularExpressions;
 using ExelWorker.Models;
 using ExelWorker.App;
+using ExelWorker.ExelReader;
 
 namespace ExelWorker.ExelWorker
 {
     public class ExelWorker : IExelWorker
     {
-        private List<ExelPropertyModel> exelProperyModel;
         public ExelWorker()
         {
 
@@ -32,61 +28,18 @@ namespace ExelWorker.ExelWorker
 
             var model = Activator.CreateInstance(typeof(TModel));
 
-            exelProperyModel = exelModelService.getClassProperties<TModel>((TModel)model);
+            List<ExelPropertyModel> exelPropertyModels;
 
-            var bookValues = ReadAllCellValues(fileStream);
+            exelPropertyModels = exelModelService.getClassProperties<TModel>((TModel)model);
 
-            return MapBookValueToModel<TModel>(bookValues);
+            XLSXReader reader = new XLSXReader(exelPropertyModels);
+
+            var bookValues = reader.ReadAllCellValues(fileStream);
+
+            return MapBookValueToModel<TModel>(bookValues, exelPropertyModels);
         }
 
-        private List<Dictionary<string, string>> ReadAllCellValues(Stream fileStream)
-        {
-            var resultList = new List<Dictionary<string, string>>();
-
-            using (SpreadsheetDocument spreadsheetDocument = SpreadsheetDocument.Open(fileStream, false))
-            {
-                WorkbookPart workbookPart = spreadsheetDocument.WorkbookPart;
-
-                foreach (WorksheetPart worksheetPart in workbookPart.WorksheetParts)
-                {
-                    OpenXmlReader reader = OpenXmlReader.Create(worksheetPart);
-
-                    int indexOfRow = 1;
-
-                    while (reader.Read())
-                    {
-                        if (reader.ElementType == typeof(Row))
-                        {
-                            // Если это линия с заголовками
-
-                            var row = ReadSingleRow(reader, workbookPart);
-                            if (indexOfRow == 1)
-                            {
-                                SetIdsOfExelPropertyToModel(row);
-                            }
-                            else
-                            {
-                                resultList.Add(row);
-                            }
-
-                            indexOfRow++;
-                        }
-                    }
-                }
-            }
-
-            return resultList;
-        }
-
-        private void SetIdsOfExelPropertyToModel(Dictionary<string, string> rowOfTitle)
-        {
-            foreach (var row in rowOfTitle)
-            {
-                exelProperyModel.FirstOrDefault(item => item.ExelPropertyName == row.Value).ExelPropertyId = row.Key;
-            }
-        }
-
-        private List<TModel> MapBookValueToModel<TModel>(List<Dictionary<string, string>> bookValues)
+        private List<TModel> MapBookValueToModel<TModel>(Stack<Dictionary<string, string>> bookValues, List<ExelPropertyModel> exelPropertyModels)
             where TModel : class
         {
             var resultList = new List<TModel>();
@@ -97,7 +50,7 @@ namespace ExelWorker.ExelWorker
 
                 foreach (var value in row)
                 {
-                    var property = exelProperyModel.FirstOrDefault(prop => value.Key == prop.ExelPropertyId);
+                    var property = exelPropertyModels.FirstOrDefault(prop => value.Key == prop.ExelPropertyId);
                     if (property != null)
                     {
                         SetProperty(valModel, property.ModelPropertyName, value.Value);
@@ -121,53 +74,6 @@ namespace ExelWorker.ExelWorker
                     prop.SetValue(obj, Convert.ChangeType(value, prop.PropertyType, null));
                 }
             }
-        }
-
-        private Dictionary<string, string> ReadSingleRow(OpenXmlReader reader, WorkbookPart workbookPart)
-        {
-            var resultDictionary = new Dictionary<string, string>();
-            int index = 1;
-
-
-            reader.ReadFirstChild();
-            do
-            {
-                if (reader.ElementType == typeof(Cell))
-                {
-
-                    Cell c = (Cell)reader.LoadCurrentElement();
-
-                    string cellValue;
-
-                    #region Read cell value
-                    if (c.DataType != null && c.DataType == CellValues.SharedString)
-                    {
-                        SharedStringItem ssi = workbookPart.SharedStringTablePart.SharedStringTable.Elements<SharedStringItem>().ElementAt(int.Parse(c.CellValue.InnerText));
-
-                        cellValue = ssi.Text.Text;
-                    }
-                    else
-                    {
-                        if (c.CellValue != null)
-                        {
-                            cellValue = c.CellValue.InnerText;
-                        }
-                        else
-                        {
-                            cellValue = "";
-                        }
-
-                    }
-                    #endregion
-
-                    resultDictionary.Add(Regex.Replace(c.CellReference, @"[\d]", string.Empty), cellValue);
-
-                    ++index;
-
-                }
-            } while (reader.ReadNextSibling());
-
-            return resultDictionary;
-        }
+        }    
     }
 }
