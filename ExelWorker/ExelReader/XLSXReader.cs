@@ -13,13 +13,13 @@ namespace ExelWorker.ExelReader
     {
         private List<ExelPropertyModel> _exelProperyModel;
 
-        internal XLSXReader(List<ExelPropertyModel> exelPropertyModel) 
+        internal XLSXReader(List<ExelPropertyModel> exelPropertyModel)
         {
             _exelProperyModel = exelPropertyModel;
         }
-        internal Stack<Dictionary<string, string>> ReadAllCellValues(Stream fileStream)
+        internal List<Dictionary<string, string>> ReadAllCellValues(Stream fileStream)
         {
-            var resultList = new Stack<Dictionary<string, string>>();
+            var resultList = new List<Dictionary<string, string>>();
 
             using (SpreadsheetDocument spreadsheetDocument = SpreadsheetDocument.Open(fileStream, false))
             {
@@ -44,7 +44,7 @@ namespace ExelWorker.ExelReader
                             }
                             else
                             {
-                                resultList.Push(row);
+                                resultList.Add(row);
                             }
 
                             indexOfRow++;
@@ -94,6 +94,7 @@ namespace ExelWorker.ExelReader
                     resultDictionary.Add(Regex.Replace(c.CellReference, @"[\d]", string.Empty), cellValue);
 
                 }
+
             } while (reader.ReadNextSibling());
 
             return resultDictionary;
@@ -103,7 +104,12 @@ namespace ExelWorker.ExelReader
         {
             foreach (var row in rowOfTitle)
             {
-                _exelProperyModel.FirstOrDefault(item => item.ExelPropertyName == row.Value).ExelPropertyId = row.Key;
+                var model = _exelProperyModel.FirstOrDefault(item => item.ExelPropertyName == row.Value);
+
+                if (model != null)
+                {
+                    model.ExelPropertyId = row.Key;
+                }
             }
         }
     }

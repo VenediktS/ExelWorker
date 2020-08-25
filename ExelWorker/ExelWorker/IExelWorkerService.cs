@@ -3,9 +3,9 @@ using System.IO;
 
 namespace ExelWorker.ExelWorker
 {
-    public interface IExelWorker
+    public interface IExelWorkerService
     {
-        List<TModel> GetModelFromExel<TModel>(FileStream fileStream)
+        List<TModel> GetModelFromExel<TModel>(Stream fileStream)
             where TModel : class;
     }
 }

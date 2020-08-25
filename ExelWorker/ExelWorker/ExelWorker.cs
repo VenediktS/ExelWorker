@@ -9,21 +9,16 @@ using ExelWorker.ExelReader;
 
 namespace ExelWorker.ExelWorker
 {
-    public class ExelWorker : IExelWorker
+    public class ExelWorkerService : IExelWorkerService
     {
-        public ExelWorker()
+        public ExelWorkerService()
         {
 
         }
 
-        public List<TModel> GetModelFromExel<TModel>(FileStream fileStream)
+        public List<TModel> GetModelFromExel<TModel>(Stream fileStream)
             where TModel : class
         {
-            if (Path.GetExtension(fileStream.Name) != ".xlsx")
-            {
-                throw new FileFormatException("Incorrect file format, work is possible only with .xlsx");
-            }
-
             ExelModelService exelModelService = new ExelModelService();
 
             var model = Activator.CreateInstance(typeof(TModel));
@@ -36,10 +31,12 @@ namespace ExelWorker.ExelWorker
 
             var bookValues = reader.ReadAllCellValues(fileStream);
 
+            fileStream.Dispose();
+
             return MapBookValueToModel<TModel>(bookValues, exelPropertyModels);
         }
 
-        private List<TModel> MapBookValueToModel<TModel>(Stack<Dictionary<string, string>> bookValues, List<ExelPropertyModel> exelPropertyModels)
+        private List<TModel> MapBookValueToModel<TModel>(List<Dictionary<string, string>> bookValues, List<ExelPropertyModel> exelPropertyModels)
             where TModel : class
         {
             var resultList = new List<TModel>();
@@ -69,11 +66,13 @@ namespace ExelWorker.ExelWorker
             var prop = obj.GetType().GetProperty(property, BindingFlags.Public | BindingFlags.Instance);
             if (prop != null && prop.CanWrite)
             {
-                if (value.GetType() == prop.PropertyType)
+                try
                 {
                     prop.SetValue(obj, Convert.ChangeType(value, prop.PropertyType, null));
                 }
+                catch (Exception e) { }
+
             }
-        }    
+        }
     }
 }
